@@ -96,11 +96,23 @@ try:
         export_format='GLTF_SEPARATE',
         export_apply=True,
         export_materials='EXPORT',
-        export_colors=True,
         use_selection=False,
         export_yup=True
     )
     print("GLTF export successful")
+"""
+        elif outformat == ".glb":
+            export_script_content += f"""    bpy.ops.export_scene.gltf(
+        filepath=r'{output_file}',
+        export_format='GLB',
+        export_apply=True,
+        export_materials='EXPORT',
+        use_selection=False,
+        export_yup=True,
+        export_cameras=False,
+        export_lights=False
+    )
+    print("GLB export successful")
 """
         elif outformat == ".fbx":
             export_script_content += f"""    bpy.ops.export_scene.fbx(
@@ -158,7 +170,7 @@ except Exception as e:
                     print(f"✓ File size: {os.path.getsize(output_file) / 1024:.1f} KB")
                     
                     # Show AR usage instructions
-                    if outformat in [".gltf", ".fbx"]:
+                    if outformat in [".gltf", ".glb", ".fbx"]:
                         print(f"\n{'='*70}")
                         print("📱 AR READY!")
                         print(f"{'='*70}")
@@ -167,6 +179,14 @@ except Exception as e:
                             print("1. Upload to: https://modelviewer.dev/editor/")
                             print("2. Click 'View in AR' on your mobile device")
                             print("3. Or use in web apps with AR.js, A-Frame, or Three.js")
+                        elif outformat == ".glb":
+                            print("✨ GLB is the BEST format for AR! (Single file, optimized)")
+                            print("To view in AR:")
+                            print("1. Upload to: https://modelviewer.dev/editor/")
+                            print("2. Click 'View in AR' button on your mobile")
+                            print("3. Or drag-drop into ar_viewer.html (in Target folder)")
+                            print("4. Start HTTP server: python -m http.server 8000")
+                            print("5. Visit on mobile: http://YOUR_IP:8000/ar_viewer.html")
                         elif outformat == ".fbx":
                             print("To use in AR:")
                             print("1. Import into Unity (AR Foundation)")
@@ -218,12 +238,13 @@ if __name__ == "__main__":
     print(f"{'='*70}")
     print("1. BLEND - Blender native format")
     print("2. GLTF - AR compatible (Web AR, Model Viewer)")
-    print("3. FBX - AR compatible (Unity, Unreal Engine)")
-    print("4. OBJ - Universal 3D format")
+    print("3. GLB - AR optimized (Single file, best for AR)")
+    print("4. FBX - AR compatible (Unity, Unreal Engine)")
+    print("5. OBJ - Universal 3D format")
     print(f"{'='*70}")
     
     while True:
-        format_choice = input("\nSelect format (1-4) or press Enter for BLEND: ").strip()
+        format_choice = input("\nSelect format (1-5) or press Enter for BLEND: ").strip()
         
         if format_choice == "" or format_choice == "1":
             output_format = ".blend"
@@ -234,15 +255,19 @@ if __name__ == "__main__":
             format_name = "GLTF (AR Compatible)"
             break
         elif format_choice == "3":
+            output_format = ".glb"
+            format_name = "GLB (AR Optimized)"
+            break
+        elif format_choice == "4":
             output_format = ".fbx"
             format_name = "FBX (AR Compatible)"
             break
-        elif format_choice == "4":
+        elif format_choice == "5":
             output_format = ".obj"
             format_name = "OBJ"
             break
         else:
-            print("❌ Please enter 1, 2, 3, or 4")
+            print("❌ Please enter 1, 2, 3, 4, or 5")
     
     print(f"✓ Selected format: {format_name}\n")
     
