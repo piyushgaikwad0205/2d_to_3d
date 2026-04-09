@@ -205,7 +205,7 @@ def feature_match(img1, img2):
 
     # find corners of door in model image
     corners = cv2.goodFeaturesToTrack(model, 3, 0.01, 20)
-    corners = np.int0(corners)
+    corners = np.intp(corners)
 
     # This is still a little hardcoded but still better than before!
     upper_left = corners[1][0]

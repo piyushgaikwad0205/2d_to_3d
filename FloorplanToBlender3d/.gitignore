@@ -1,6 +1,9 @@
 # Testing
 *test-result
 */storage
+/FloorplanToBlender3d/.venv
+
+
 
 config.ini
 ./config.ini

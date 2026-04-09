@@ -2,6 +2,14 @@
 import os
 import sys
 import subprocess
+
+# Check if running in non-interactive mode
+IS_INTERACTIVE = sys.stdin.isatty()
+
+# Print startup message BEFORE importing the heavy library
+
+
+# NOW import the library (delayed to avoid hanging before user sees anything)
 from FloorplanToBlenderLib import *
 
 def create_blender_project(base_path, blender_path, program_path, output_format=".blend"):
@@ -55,12 +63,25 @@ def create_blender_project(base_path, blender_path, program_path, output_format=
     
     print("\n⏳ Creating blend file...")
     print(f"Command: {' '.join([str(x) for x in cmd_create])}")
+    sys.stdout.flush()
     
     try:
-        result = subprocess.check_output(cmd_create, stderr=subprocess.STDOUT)
+        result = subprocess.run(cmd_create, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=600)
         print(f"✓ Blend file created: {blend_file}")
+        sys.stdout.flush()
+        if result.stdout:
+            print(result.stdout)
+            sys.stdout.flush()
+        if result.returncode != 0 and result.stderr:
+            print(f"Warnings/Errors: {result.stderr}")
+            sys.stdout.flush()
+    except subprocess.TimeoutExpired:
+        print(f"❌ Error: Blend creation timed out (exceeded 10 minutes)")
+        sys.stdout.flush()
+        raise
     except subprocess.CalledProcessError as e:
         print(f"❌ Error creating blend file:")
+        sys.stdout.flush()
         if e.output:
             print(e.output.decode())
         raise
@@ -153,8 +174,9 @@ except Exception as e:
         ]
         
         try:
-            # Python 3.6 compatible version
-            result = subprocess.run(cmd_export, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+            # Python 3.6 compatible version with timeout
+            result = subprocess.run(cmd_export, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=600)
+            sys.stdout.flush()
             
             # Clean up temp script
             if os.path.exists(temp_export_script):
@@ -162,18 +184,22 @@ except Exception as e:
             
             if result.returncode != 0:
                 print(f"Export error: {result.stderr}")
+                sys.stdout.flush()
                 print(f"Export output: {result.stdout}")
+                sys.stdout.flush()
             else:
                 # Verify export file exists and has content
                 if os.path.exists(output_file) and os.path.getsize(output_file) > 0:
                     print(f"✓ Export successful: {output_file}")
                     print(f"✓ File size: {os.path.getsize(output_file) / 1024:.1f} KB")
+                    sys.stdout.flush()
                     
                     # Show AR usage instructions
                     if outformat in [".gltf", ".glb", ".fbx"]:
                         print(f"\n{'='*70}")
                         print("📱 AR READY!")
                         print(f"{'='*70}")
+                        sys.stdout.flush()
                         if outformat == ".gltf":
                             print("To view in AR:")
                             print("1. Upload to: https://modelviewer.dev/editor/")
@@ -193,31 +219,51 @@ except Exception as e:
                             print("2. Or import into Unreal Engine (AR Kit/Core)")
                             print("3. Or use with 8th Wall for web AR")
                         print(f"{'='*70}\n")
+                        sys.stdout.flush()
                 else:
                     print(f"❌ Export file was not created or is empty")
+                    sys.stdout.flush()
                     print(f"Note: You can manually export from the BLEND file: {blend_file}")
+                    sys.stdout.flush()
+        except subprocess.TimeoutExpired:
+            print(f"❌ Export timed out (exceeded 10 minutes)")
+            sys.stdout.flush()
+            print(f"Note: You can still use the BLEND file: {blend_file}")
+            sys.stdout.flush()
         except Exception as e:
             print(f"❌ Export failed: {e}")
+            sys.stdout.flush()
             print(f"Note: You can still use the BLEND file: {blend_file}")
+            sys.stdout.flush()
     
     print(f"\n{'='*70}")
     print("✓ BLENDER PROJECT CREATED SUCCESSFULLY!")
     print(f"{'='*70}\n")
+    sys.stdout.flush()
     
     # Open the created file in Blender
     print("🚀 Opening Blender with the created file...\n")
+    sys.stdout.flush()
     try:
         subprocess.Popen([blender_path, blend_file])
         print(f"✓ Blender launched with: {blend_file}")
+        sys.stdout.flush()
     except Exception as e:
         print(f"❌ Could not open Blender: {e}")
+        sys.stdout.flush()
         print(f"You can manually open: {blend_file}")
+        sys.stdout.flush()
 
 # Main execution
 if __name__ == "__main__":
-    print("\n" + "="*70)
-    print("FLOORPLAN TO BLENDER 3D - INTERACTIVE (AR COMPATIBLE)")
-    print("="*70)
+    import time
+    time.sleep(1)
+    
+    # Set defaults
+    output_format = ".blend"
+    format_name = "BLEND"
+    selected_image = None
+    config_path = "./Configs/default.ini"
     
     # Set Blender path
     blender_path = "P:\\blender\\blender.exe"
@@ -242,38 +288,56 @@ if __name__ == "__main__":
     print("4. FBX - AR compatible (Unity, Unreal Engine)")
     print("5. OBJ - Universal 3D format")
     print(f"{'='*70}")
+    sys.stdout.flush()
     
-    while True:
-        format_choice = input("\nSelect format (1-5) or press Enter for BLEND: ").strip()
-        
-        if format_choice == "" or format_choice == "1":
+    # Try to get input, but don't block if stdin unavailable
+    try:
+        if not IS_INTERACTIVE:
+            # Non-interactive mode: use all defaults
+            print("ℹ️  Running in non-interactive mode. Using defaults.")
+            sys.stdout.flush()
             output_format = ".blend"
             format_name = "BLEND"
-            break
-        elif format_choice == "2":
-            output_format = ".gltf"
-            format_name = "GLTF (AR Compatible)"
-            break
-        elif format_choice == "3":
-            output_format = ".glb"
-            format_name = "GLB (AR Optimized)"
-            break
-        elif format_choice == "4":
-            output_format = ".fbx"
-            format_name = "FBX (AR Compatible)"
-            break
-        elif format_choice == "5":
-            output_format = ".obj"
-            format_name = "OBJ"
-            break
         else:
-            print("❌ Please enter 1, 2, 3, 4, or 5")
+            while True:
+                format_choice = input("\nSelect format (1-5) or press Enter for BLEND: ").strip()
+                sys.stdout.flush()
+                
+                if format_choice == "" or format_choice == "1":
+                    output_format = ".blend"
+                    format_name = "BLEND"
+                    break
+                elif format_choice == "2":
+                    output_format = ".gltf"
+                    format_name = "GLTF (AR Compatible)"
+                    break
+                elif format_choice == "3":
+                    output_format = ".glb"
+                    format_name = "GLB (AR Optimized)"
+                    break
+                elif format_choice == "4":
+                    output_format = ".fbx"
+                    format_name = "FBX (AR Compatible)"
+                    break
+                elif format_choice == "5":
+                    output_format = ".obj"
+                    format_name = "OBJ"
+                    break
+                else:
+                    print("❌ Please enter 1, 2, 3, 4, or 5")
+                    sys.stdout.flush()
+    except (EOFError, KeyboardInterrupt):
+        print("\n✓ Using default format: BLEND")
+        sys.stdout.flush()
+        output_format = ".blend"
+        format_name = "BLEND"
     
     print(f"✓ Selected format: {format_name}\n")
+    sys.stdout.flush()
     
     # Show available example images
     examples_dir = "./Images/Examples"
-    if os.path.exists(examples_dir):
+    if os.path.exists(examples_dir) and IS_INTERACTIVE:
         example_files = [f for f in os.listdir(examples_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         
         if example_files:
@@ -283,17 +347,20 @@ if __name__ == "__main__":
             for i, filename in enumerate(example_files, 1):
                 print(f"{i}. {filename}")
             print(f"{'='*70}")
+            sys.stdout.flush()
             
             # Get user selection
-            while True:
-                try:
+            try:
+                while True:
                     choice = input(f"\nSelect a floorplan (1-{len(example_files)}) or press Enter for default: ").strip()
+                    sys.stdout.flush()
                     
                     if choice == "":
                         # Use default config
                         config_path = "./Configs/default.ini"
                         selected_image = None
                         print(f"✓ Using default config: {config_path}")
+                        sys.stdout.flush()
                         break
                     
                     choice_num = int(choice)
@@ -302,46 +369,61 @@ if __name__ == "__main__":
                         config_path = "./Configs/default.ini"
                         print(f"\n✓ Selected: {example_files[choice_num - 1]}")
                         print(f"✓ Image path: {selected_image}")
+                        sys.stdout.flush()
                         break
                     else:
                         print(f"❌ Please enter a number between 1 and {len(example_files)}")
-                except ValueError:
-                    print("❌ Please enter a valid number")
+                        sys.stdout.flush()
+            except (ValueError, EOFError, KeyboardInterrupt):
+                print("\n✓ Using default configuration")
+                sys.stdout.flush()
+                selected_image = None
+                config_path = "./Configs/default.ini"
         else:
             print("\n⚠ No example images found, using default config")
             config_path = "./Configs/default.ini"
             selected_image = None
     else:
-        print("\n⚠ Examples directory not found, using default config")
+        # Non-interactive: always use defaults
+        print("ℹ️  Using default configuration (non-interactive mode)")
+        sys.stdout.flush()
         config_path = "./Configs/default.ini"
         selected_image = None
     
     print(f"✓ Using config: {config_path}\n")
+    sys.stdout.flush()
     
     # Create floorplan object
     print("⏳ Initializing floorplan...")
+    sys.stdout.flush()
     floorplan_obj = floorplan.new_floorplan(config_path)
     
     # Override image path if user selected one
     if selected_image:
         floorplan_obj.image_path = selected_image
         print(f"✓ Using selected image: {selected_image}")
+        sys.stdout.flush()
     
     # Generate data files
     print("⏳ Generating data files...")
+    sys.stdout.flush()
     try:
         base_path = execution.simple_single(floorplan_obj, show=False)
         print(f"✓ Data files generated at: {base_path}\n")
+        sys.stdout.flush()
         
         # Create Blender project
         create_blender_project(base_path, blender_path, program_path, output_format)
         
     except Exception as e:
         print(f"\n❌ Error: {e}")
+        sys.stdout.flush()
         import traceback
         traceback.print_exc()
+        sys.stdout.flush()
         sys.exit(1)
     
     print("\n" + "="*70)
     print("✓ ALL DONE! Have a nice day!")
     print("="*70)
+    sys.stdout.flush()

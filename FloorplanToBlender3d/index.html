@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FloorplanTo3D - AI Powered Visualization</title>
+    <script src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js" type="module"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        model-viewer { width: 100%; height: 500px; background-color: #f3f4f6; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-900 font-sans">
+    <header class="bg-blue-600 text-white py-6 shadow-md text-center">
+        <h1 class="text-3xl font-bold">Floorplan to 3D AI</h1>
+        <p class="mt-2 text-blue-100">Upload your image and watch it transform!</p>
+    </header>
+
+    <main class="max-w-4xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-xl">
+        <div class="mb-8 border-2 border-dashed border-gray-300 rounded-lg p-10 text-center" id="upload-zone">
+            <input type="file" id="fileInput" class="hidden" accept="image/*">
+            <button onclick="document.getElementById('fileInput').click()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full transition duration-300 ease-in-out transform hover:scale-105">
+                Upload Floorplan Image
+            </button>
+            <p id="fileName" class="mt-4 text-gray-500 italic"></p>
+        </div>
+
+        <div id="statusSection" class="hidden mb-8 text-center bg-blue-50 p-4 rounded-lg">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-2 align-middle"></div>
+            <span class="text-lg font-medium text-blue-600">Processing Your Floorplan...</span>
+            <p class="mt-2 text-sm text-gray-500 italic">(Blender is working its magic in the cloud)</p>
+        </div>
+
+        <div id="viewerSection" class="hidden animate-fade-in">
+            <h2 class="text-xl font-semibold mb-3 text-gray-700">3D Preview:</h2>
+            <model-viewer id="modelViewer" camera-controls auto-rotate shadow-intensity="1" ar></model-viewer>
+            <div class="mt-6 flex gap-4">
+                <a id="downloadBtn" href="#" class="flex-1 bg-green-500 hover:bg-green-600 text-white text-center font-bold py-3 px-6 rounded-lg shadow transition transform hover:scale-105">
+                    Download .GLB File
+                </a>
+                <button onclick="window.location.reload()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-lg transition">
+                    Start New Project
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="mt-20 text-center py-6 text-gray-500 text-sm">
+        Powered by FloorplanToBlenderLib & FastAPI
+    </footer>
+
+    <script>
+        const API_BASE = "http://localhost:8000";
+        const fileInput = document.getElementById('fileInput');
+        const uploadZone = document.getElementById('upload-zone');
+        const statusSection = document.getElementById('statusSection');
+        const viewerSection = document.getElementById('viewerSection');
+        const modelViewer = document.getElementById('modelViewer');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileName').textContent = `File selected: ${file.name}`;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+
+            uploadZone.classList.add('hidden');
+            statusSection.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${API_BASE}/convert`, { method: 'POST', body: formData });
+                const { job_id } = await response.json();
+                pollStatus(job_id);
+            } catch (error) {
+                alert("Server Connection Failed. Make sure web_api.py is running!");
+                window.location.reload();
+            }
+        });
+
+        async function pollStatus(job_id) {
+            const interval = setInterval(async () => {
+                const res = await fetch(`${API_BASE}/status/${job_id}`);
+                const data = await res.json();
+                
+                if (data.status === 'completed') {
+                    clearInterval(interval);
+                    showModel(`${API_BASE}${data.download_url}`);
+                }
+            }, 3000);
+        }
+
+        function showModel(url) {
+            statusSection.classList.add('hidden');
+            viewerSection.classList.remove('hidden');
+            modelViewer.src = url;
+            downloadBtn.href = url;
+        }
+    </script>
+</body>
+</html>
